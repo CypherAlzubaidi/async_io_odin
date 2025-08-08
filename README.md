@@ -1,10 +1,6 @@
 # try-making-non-blocking-io-using-odin-
 check read me file please 
 
+This project isn't finished yet, and there are a lot of mistakes in the code, like in the error handling. I know why—because I'm an idiot. Anyway, this is my second time trying to do a project. I'm using callback functions this time, and I borrowed some of the code from this repo: https://github.com/sphaerophoria/ball-machine/commit/fb995b3db2ae66eccde001dd25577479346e157e. Do you know why I steal ( i mean borrow)  some code from this repo? Because I'm a bad programmer, and I'll be replaced by AI (god i hope not!).
 
-
-this project unfinished yet there a lot of mistake in code like error handling you know why ? because i am idiiot any this my second try doing this i stole some of the code from this 
-repo https://github.com/sphaerophoria/ball-machine/commit/fb995b3db2ae66eccde001dd25577479346e157e , do you know why steal  some code from this repo because i am bad progrmmer 
-and i will replace by ai (god i hope not) 
-check the channel of that i stole the some code from it 
-his channel name is sphaerophoria , and he definitely will not replace by ai 
+Check out the channel of the guy whose code I borrowed. His channel name is sphaerophoria, and he definitely won't mind.
