@@ -13,7 +13,10 @@ import "core:sys/linux"
 import "core:sys/posix"
 import "core:sys/unix"
 /*
- async_read() => read_handler()
+
+Todo list :
+we simple architure we
+
 */
 
 // for handling our callback function state

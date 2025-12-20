@@ -14,7 +14,13 @@ import "core:sys/unix"
 import "core:thread"
 
 
-Task :: proc(data: rawptr)
+Task_Handler :: proc(data: int)
+
+Task :: struct {
+	Task_: Task_Handler,
+	data:  int,
+}
+
 Thread_pool :: struct {
 	Worker_container: [dynamic]^Worker,
 	count:            int,
@@ -63,21 +69,25 @@ Is_RunnningTasks :: proc(th: ^Thread_pool) -> bool {
 }
 
 
-Get_Task :: proc(th: ^Thread_pool) -> Task {
+Get_Task :: proc(th: ^Thread_pool) -> (task: Task, ok: bool) {
 
-	task: Task
+
 	sync.atomic_mutex_lock(&th.mtx)
 	defer sync.atomic_mutex_unlock(&th.mtx)
 
-	for (th.queue_task_num != 0) {
+
+	for (queue.len(th.tasks) == 0) {
 		sync.atomic_cond_wait(&th.cv, &th.mtx)
+	}
+
+	if queue.len(th.tasks) == 0 {
+		return {}, false
 	}
 
 	task = queue.front(&th.tasks)
 	queue.pop_front(&th.tasks)
 	th.count = th.count - 1
-
-	return task
+	return task, true
 }
 
 Worker :: struct {
@@ -87,6 +97,7 @@ Worker :: struct {
 	isBusy:  bool,
 	task:    ^Task,
 	isDying: bool,
+	pool:    ^Thread_pool,
 }
 
 
@@ -105,7 +116,7 @@ Worker_SetJob :: proc(worker: ^Worker, task_: ^Task) {
 }
 
 
-Run_Worker :: proc(th: ^thread.Thread) {
+Run_Worker_2 :: proc(th: ^thread.Thread) {
 	worker := (cast(^Worker)th.data)
 	sync.atomic_mutex_lock(&worker.mtx)
 	defer sync.atomic_mutex_unlock(&worker.mtx)
@@ -123,21 +134,21 @@ Run_Worker :: proc(th: ^thread.Thread) {
 }
 
 
-Rune_Worker :: proc(th: ^thread.Thread) {
+Run_Worker_1 :: proc(th: ^thread.Thread) {
 	worker := (cast(^Worker)th.data)
 	sync.atomic_mutex_lock(&worker.mtx)
 	defer sync.atomic_mutex_unlock(&worker.mtx)
-	for (true) {
-		for (worker.task != nil || worker.isDying) {
-			sync.atomic_cond_wait(&worker.cv, &worker.mtx)
-		}
-		if (worker.isDying) {
+	task: Task
+	ok: bool
+	for {
+		task, ok = Get_Task(worker.pool)
+
+		if !ok {
 			break
 		}
-		worker.task = nil
-		worker.isBusy = false
-	}
 
+		task.Task_(task.data)
+	}
 }
 
 
@@ -155,10 +166,11 @@ Create_Worker :: proc(th: ^Thread_pool, num: int) {
 	for i := 0; i < num; i += 1 {
 		new_ptr := new(Worker, context.temp_allocator)
 		new_ptr.isBusy = false
-		new_thread := thread.create(Run_Worker)
+		new_thread := thread.create(Run_Worker_1)
 		new_thread.data = new_ptr
 		new_ptr.thread = new_thread
 		new_ptr.isDying = false
+		new_ptr.pool = th
 		append(&th.Worker_container, new_ptr)
 		new_ptr.task = nil
 		thread.start(new_ptr.thread)
