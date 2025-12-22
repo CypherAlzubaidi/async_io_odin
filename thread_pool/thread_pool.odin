@@ -25,7 +25,8 @@ Thread_pool :: struct {
 	Worker_container: [dynamic]^Worker,
 	count:            int,
 	mtx:              sync.Atomic_Mutex,
-	cv:               sync.Atomic_Cond,
+	taskQueueCv:      sync.Atomic_Cond,
+	allDoneCv:        sync.Atomic_Cond,
 	tasks:            queue.Queue(Task),
 	queue_task_num:   int,
 }
@@ -38,24 +39,12 @@ init_tp :: proc(thread_pool: ^Thread_pool, num: int) {
 }
 
 
-Run_Task :: proc(th: ^Thread_pool, task: ^Task) {
-	available_worker: ^Worker = nil
-	for i := 0; i < th.count; i += 1 {
-		if (!th.Worker_container[i].isBusy) {
-			available_worker = th.Worker_container[i]
-		}
+Run_Task :: proc(th: ^Thread_pool, task_: Task) {
 
-		if (available_worker != nil) {
-			Worker_SetJob(available_worker, task)
-		} else {
-			Create_Worker(th, 1)
-			th.count = +1
-			Worker_SetJob(th.Worker_container[th.count], task)
-
-		}
-
-	}
-
+	sync.atomic_mutex_lock(&th.mtx)
+	defer sync.atomic_mutex_unlock(&th.mtx)
+	queue.push_back(&th.tasks, task_)
+	sync.atomic_cond_signal(&th.taskQueueCv)
 }
 
 Is_RunnningTasks :: proc(th: ^Thread_pool) -> bool {
@@ -76,18 +65,30 @@ Get_Task :: proc(th: ^Thread_pool) -> (task: Task, ok: bool) {
 	defer sync.atomic_mutex_unlock(&th.mtx)
 
 
-	for (queue.len(th.tasks) == 0) {
-		sync.atomic_cond_wait(&th.cv, &th.mtx)
+	for (queue.len(th.tasks) != 0) {
+		sync.atomic_cond_wait(&th.taskQueueCv, &th.mtx)
 	}
-
 	if queue.len(th.tasks) == 0 {
-		return {}, false
+		//return {}, false
+		sync.atomic_cond_broadcast(&th.allDoneCv)
+		break
 	}
 
 	task = queue.front(&th.tasks)
 	queue.pop_front(&th.tasks)
 	th.count = th.count - 1
 	return task, true
+}
+
+WaitFor_AllDone :: proc(th: ^Thread_pool) {
+
+	sync.atomic_mutex_lock(&th.mtx)
+	defer sync.atomic_mutex_unlock(&th.mtx)
+	for (queue.len(th.tasks) == 0) {
+		sync.atomic_cond_wait(&th.allDoneCv, &th.mtx)
+
+	}
+
 }
 
 Worker :: struct {
@@ -106,7 +107,7 @@ Is_Worker_busy :: proc(worker: ^Worker) -> bool {
 	return worker.isBusy
 
 }
-
+/*
 Worker_SetJob :: proc(worker: ^Worker, task_: ^Task) {
 	sync.atomic_mutex_lock(&worker.mtx)
 	defer sync.atomic_mutex_unlock(&worker.mtx)
@@ -114,7 +115,7 @@ Worker_SetJob :: proc(worker: ^Worker, task_: ^Task) {
 	worker.isBusy = true
 	sync.atomic_cond_signal(&worker.cv)
 }
-
+*/
 
 Run_Worker_2 :: proc(th: ^thread.Thread) {
 	worker := (cast(^Worker)th.data)
@@ -136,16 +137,16 @@ Run_Worker_2 :: proc(th: ^thread.Thread) {
 
 Run_Worker_1 :: proc(th: ^thread.Thread) {
 	worker := (cast(^Worker)th.data)
-	sync.atomic_mutex_lock(&worker.mtx)
-	defer sync.atomic_mutex_unlock(&worker.mtx)
+	//sync.atomic_mutex_lock(&worker.mtx)
+	//defer sync.atomic_mutex_unlock(&worker.mtx)
 	task: Task
 	ok: bool
 	for {
 		task, ok = Get_Task(worker.pool)
-
+		/*
 		if !ok {
 			break
-		}
+			}*/
 
 		task.Task_(task.data)
 	}
