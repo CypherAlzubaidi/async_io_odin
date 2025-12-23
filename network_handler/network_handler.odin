@@ -27,7 +27,7 @@ Handler_Type :: enum {
 
 
 @(private)
-Callback :: proc(data: rawptr, state: State)
+Callback :: proc(data: rawptr, buffer: u8[1024], state: State)
 @(private)
 Callback_Stop :: proc(data: rawptr)
 
@@ -37,7 +37,7 @@ acceptor_callback :: proc(data: rawptr, state: State) -> net.TCP_Socket
 acceptor_callback_stop :: proc(data: rawptr, state: State) -> net.TCP_Socket
 
 @(private)
-Callback_handler :: struct {
+Data_Handler :: struct {
 	/// callbakc function for tcp handler struct and everthing belong to it
 	callback_func_1:      Callback,
 	stop_callback_func_1: Callback_Stop,
@@ -49,16 +49,21 @@ Callback_handler :: struct {
 	type:                 Handler_Type,
 }
 
-Network_Handler :: struct {
+Network_Pool :: struct {
+	container: [dynamic]^Network_Tcp_Handler,
+}
+
+Network_Tcp_Handler :: struct {
 	conn:               net.TCP_Socket,
 	operation_complete: bool,
 	buffer:             [1024]u8,
 }
 
-create_network_handler :: proc(
-	container: [dynamic]^Network_Handler,
-	conn: net.TCP_Socket,
-) -> ^Network_Handler {
+Init_Network_HandlerPool :: proc(pool: ^Network_Pool) {
+	pool.container = make([dynamic]^Network_Tcp_Handler, context.temp_allocator)
+}
+
+Create_Network_Handler :: proc(conn: net.TCP_Socket) -> ^Network_Tcp_Handler {
 	new_handler, err := mem.new(Network_Handler)
 
 	if err != nil {
@@ -66,19 +71,24 @@ create_network_handler :: proc(
 	}
 	//set_socket_non_blocking(new_handler.conn)
 	new_handler.conn = conn
-	append(container, new_handler)
-	append(&container, new_handler)
 	return new_handler
 }
 
 
-create_handler_container :: proc() -> [dynamic]^Network_Handler {
-	container := make([dynamic]^Network_Handler, context.temp_allocator)
-	return container
-}
-
-deinit_tcp_handler :: proc(data: rawptr) {
-	some_handler := cast(^Network_Handler)data
+Deinit_Tcp_Handler :: proc(data: rawptr) {
+	some_handler := cast(^Network_Tcp_Handler)data
 	net.close(some_handler.conn)
 	free(some_handler)
+}
+
+Read_Tcp_Handler :: proc(tcp_handler: ^Network_Tcp_Handler) {
+
+}
+
+main :: proc() {
+	pool: Network_Pool
+	handler := Create_Network_Handler()
+	Init_Network_HandlerPool(&pool)
+	append(&pool.container, handler)
+
 }

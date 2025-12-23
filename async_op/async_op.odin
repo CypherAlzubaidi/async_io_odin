@@ -1,5 +1,4 @@
 package async_io_odin
-
 import cb "../circular_buffer"
 import mp "../memory_pool"
 import "core:crypto/poly1305"
@@ -212,7 +211,6 @@ tcp_handler :: struct {
 	operation_complete: bool,
 	circular_buffer:    cb.circular_buf(u8),
 	//buffer:             [1024 * 2]u8,
-	//event_container:    [100]linux.EPoll_Event,
 }
 
 @(private)
