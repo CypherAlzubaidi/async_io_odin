@@ -1,5 +1,6 @@
 package network_handler
 import cb "../circular_buffer"
+import io_u "../io_utils"
 import mp "../memory_pool"
 import "core:crypto/poly1305"
 import "core:flags"
@@ -11,6 +12,7 @@ import "core:slice"
 import "core:sys/linux"
 import "core:sys/posix"
 import "core:sys/unix"
+
 @(private)
 State :: enum {
 	nothing,
@@ -24,11 +26,10 @@ Handler_Type :: enum {
 	acceptor,
 }
 
-
 Error_Code :: enum {}
 
 @(private)
-Callback_bind :: proc(socket: net.TCP_Socket, buffer: [1024]u8, ec: Error_Code)
+Callback_bind :: proc(socket: net.TCP_Socket, buffer: [1024]u8, ec: Error_Code, container: ^T)
 
 @(private)
 Callback_Handler :: proc(data: rawptr, buffer: [1024]u8, state: State)
@@ -64,7 +65,11 @@ Network_Tcp_Handler :: struct {
 }
 
 Init_Network_HandlerPool :: proc(pool: ^Network_Pool) {
-	pool.container = make([dynamic]^Network_Tcp_Handler, context.temp_allocator)
+	pool.container = make([dynamic]^Network_Tcp_Handler)
+}
+
+Deinit_Network_HandlerPool :: proc(pool: ^Network_Pool) {
+	delete_dynamic_array(pool.container)
 }
 
 Create_Network_Handler :: proc(conn: net.TCP_Socket) -> ^Network_Tcp_Handler {
@@ -87,23 +92,41 @@ Deinit_Tcp_Handler :: proc(data: rawptr) {
 
 Read_Tcp_Handler :: proc(
 	tcp_handler: ^Network_Tcp_Handler,
-	container: ^$T,
-	push_proc: proc(_: ^T, _: []byte),
+	buf: []byte,
 	state: State,
 	bind: Callback_bind,
 ) {
-	buffer_inside: []byte
-	n_read, err := net.recv_tcp(tcp_handler.conn, buffer_inside[:])
+	n_read, err := net.recv_tcp(tcp_handler.conn, buf[:])
 	if err != nil {
 		if err != .Would_Block {
 			fmt.printfln("error said => ", err)
+			return
 		}
-		return
 	}
 
+	if n_read > 0 {
+		bind()
+	}
+
+}
+
+
+Write_Tcp_Handler :: proc(
+	tcp_handler: ^Network_Tcp_Handler,
+	buf: []byte,
+	state: State,
+	bind: Callback_bind,
+) {
+	n_read, err := net.recv_tcp(tcp_handler.conn, buf[:])
+	if err != nil {
+		if err != .Would_Block {
+			fmt.printfln("error said => ", err)
+			return
+		}
+	}
 
 	if n_read > 0 {
-		push_proc()
+		bind()
 	}
 
 }
