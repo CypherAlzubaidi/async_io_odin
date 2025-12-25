@@ -11,14 +11,13 @@ import "core:slice"
 import "core:sys/linux"
 import "core:sys/posix"
 import "core:sys/unix"
+@(private)
 State :: enum {
 	nothing,
 	deinit,
 }
 
 @(private)
-
-
 Handler_Type :: enum {
 	recv,
 	send,
@@ -26,8 +25,13 @@ Handler_Type :: enum {
 }
 
 
+Error_Code :: enum {}
+
 @(private)
-Callback :: proc(data: rawptr, buffer: u8[1024], state: State)
+Callback_bind :: proc(socket: net.TCP_Socket, buffer: [1024]u8, ec: Error_Code)
+
+@(private)
+Callback_Handler :: proc(data: rawptr, buffer: [1024]u8, state: State)
 @(private)
 Callback_Stop :: proc(data: rawptr)
 
@@ -39,7 +43,7 @@ acceptor_callback_stop :: proc(data: rawptr, state: State) -> net.TCP_Socket
 @(private)
 Data_Handler :: struct {
 	/// callbakc function for tcp handler struct and everthing belong to it
-	callback_func_1:      Callback,
+	callback_func_1:      Callback_Handler,
 	stop_callback_func_1: Callback_Stop,
 	/// callbakc function for async accepotr struct and everthing belong to it
 	data:                 rawptr,
@@ -64,7 +68,7 @@ Init_Network_HandlerPool :: proc(pool: ^Network_Pool) {
 }
 
 Create_Network_Handler :: proc(conn: net.TCP_Socket) -> ^Network_Tcp_Handler {
-	new_handler, err := mem.new(Network_Handler)
+	new_handler, err := mem.new(Network_Tcp_Handler)
 
 	if err != nil {
 		fmt.println("errro said => ", err)
@@ -81,9 +85,29 @@ Deinit_Tcp_Handler :: proc(data: rawptr) {
 	free(some_handler)
 }
 
-Read_Tcp_Handler :: proc(tcp_handler: ^Network_Tcp_Handler) {
+Read_Tcp_Handler :: proc(
+	tcp_handler: ^Network_Tcp_Handler,
+	container: ^$T,
+	push_proc: proc(_: ^T, _: []byte),
+	state: State,
+	bind: Callback_bind,
+) {
+	buffer_inside: []byte
+	n_read, err := net.recv_tcp(tcp_handler.conn, buffer_inside[:])
+	if err != nil {
+		if err != .Would_Block {
+			fmt.printfln("error said => ", err)
+		}
+		return
+	}
+
+
+	if n_read > 0 {
+		push_proc()
+	}
 
 }
+
 
 main :: proc() {
 	pool: Network_Pool
