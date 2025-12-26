@@ -29,19 +29,6 @@ Handler_Type :: enum {
 Error_Code :: enum {}
 
 @(private)
-Callback_bind :: proc(socket: net.TCP_Socket, buffer: [1024]u8, ec: Error_Code, container: ^T)
-
-@(private)
-Callback_Handler :: proc(data: rawptr, buffer: [1024]u8, state: State)
-@(private)
-Callback_Stop :: proc(data: rawptr)
-
-@(private)
-acceptor_callback :: proc(data: rawptr, state: State) -> net.TCP_Socket
-@(private)
-acceptor_callback_stop :: proc(data: rawptr, state: State) -> net.TCP_Socket
-
-@(private)
 Data_Handler :: struct {
 	/// callbakc function for tcp handler struct and everthing belong to it
 	callback_func_1:      Callback_Handler,
