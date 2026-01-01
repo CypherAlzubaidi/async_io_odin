@@ -15,7 +15,6 @@ import "core:sys/posix"
 import "core:sys/unix"
 
 
-
 Error_Code :: enum {
 	Success = 0,
 	// Connection errors
@@ -72,7 +71,7 @@ Error_Info :: struct {
 // Convert net.Network_Error to Error_Code
 Net_Error_To_Error_Code :: proc(err: net.Network_Error) -> Error_Code {
 	switch err {
-	case net.:
+	case .Success:
 		return .Success
 	case .Would_Block:
 		return .Would_Block
@@ -216,7 +215,6 @@ get_error_message :: proc(code: Error_Code) -> string {
 Make_Error_Info :: proc(code: Error_Code, category: Error_Category) -> Error_Info {
 	return Error_Info{code = code, category = category, message = get_error_message(code)}
 }
-
 
 
 Error_Category :: enum {
