@@ -17,42 +17,27 @@ import "core:sys/unix"
 
 Error_Code :: enum {
 	Success = 0,
-	// Connection errors
-	Connection_Aborted,
-	Connection_Refused,
-	Connection_Reset,
-	Not_Connected,
-	Already_Connected,
-	// I/O errors
-	Would_Block,
-	Try_Again,
-	Operation_Canceled,
-	Timed_Out,
-	// Network errors
-	Network_Down,
 	Network_Unreachable,
-	Host_Unreachable,
-	// Resource errors
-	No_Memory,
-	No_Buffer_Space,
-	Too_Many_Files,
-	// Socket errors
-	Bad_File_Descriptor,
+	Insufficient_Resources,
 	Invalid_Argument,
-	Broken_Pipe,
-	Message_Too_Large,
-	// Protocol errors
-	Protocol_Error,
-	Wrong_Protocol_Type,
+	Insufficient_Permissions,
+	Broadcast_Not_Supported,
+	Already_Connected,
+	Already_Connecting,
+	Already_Bound,
 	Address_In_Use,
-	Address_Not_Available,
-	// System errors
-	Access_Denied,
+	Host_Unreachable,
+	Refused,
+	Reset,
+	Connection_Closed,
+	Not_Connected,
+	Not_Listening,
+	Unsupported_Socket,
+	Aborted,
+	Timeout,
+	Would_Block,
 	Interrupted,
-	Fault,
-	// EOF
-	End_Of_File,
-	// Unknown
+	Port_Required,
 	Unknown,
 }
 
@@ -71,29 +56,150 @@ Error_Info :: struct {
 // Convert net.Network_Error to Error_Code
 Net_Error_To_Error_Code :: proc(err: net.Network_Error) -> Error_Code {
 	switch err {
-	case .Success:
+	case net.Create_Socket_Error.None:
 		return .Success
-	case .Would_Block:
-		return .Would_Block
-	case .Connection_Aborted:
-		return .Connection_Aborted
-	case .Connection_Refused:
-		return .Connection_Refused
-	case .Connection_Reset:
-		return .Connection_Reset
-	case .Not_Connected:
-		return .Not_Connected
-	case .Timed_Out:
-		return .Timed_Out
-	case .Address_In_Use:
+	case net.Create_Socket_Error.Network_Unreachable:
+		return .Network_Unreachable
+	case net.Create_Socket_Error.Insufficient_Resources:
+		return .Insufficient_Resources
+	case net.Create_Socket_Error.Invalid_Argument:
+		return .Invalid_Argument
+	case net.Create_Socket_Error.Insufficient_Permissions:
+		return .Insufficient_Permissions
+	/////// Dial Error
+	case net.Dial_Error.None:
+		return .Success
+	case net.Dial_Error.Network_Unreachable:
+		return .Network_Unreachable
+	case net.Dial_Error.Insufficient_Resources:
+		return .Insufficient_Resources
+	case net.Dial_Error.Invalid_Argument:
+		return .Invalid_Argument
+	case net.Dial_Error.Broadcast_Not_Supported:
+		return .Broadcast_Not_Supported
+	case net.Dial_Error.Already_Connected:
+		return .Already_Connected
+	case net.Dial_Error.Already_Connecting:
+		return .Already_Connecting
+	case net.Dial_Error.Address_In_Use:
 		return .Address_In_Use
-	case .Broken_Pipe:
-		return .Broken_Pipe
+	case net.Dial_Error.Host_Unreachable:
+		return .Host_Unreachable
+	case net.Dial_Error.Refused:
+		return .Refused
+	case net.Dial_Error.Reset:
+		return .Reset
+	case net.Dial_Error.Timeout:
+		return .Timeout
+	case net.Dial_Error.Would_Block:
+		return .Would_Block
+	case net.Dial_Error.Interrupted:
+		return .Interrupted
+	case net.Dial_Error.Port_Required:
+		return .Port_Required
+	// Listen Error
+	case net.Listen_Error.None:
+		return .Success
+	case net.Listen_Error.Network_Unreachable:
+		return .Network_Unreachable
+	case net.Listen_Error.Insufficient_Resources:
+		return .Insufficient_Resources
+	case net.Listen_Error.Invalid_Argument:
+		return .Invalid_Argument
+	case net.Listen_Error.Unsupported_Socket:
+		return .Unsupported_Socket
+	case net.Listen_Error.Already_Connected:
+		return .Already_Connected
+	case net.Listen_Error.Address_In_Use:
+		return .Address_In_Use
+	case net.Accept_Error.None:
+		// Accept Error
+		return .Success
+	case net.Accept_Error.Network_Unreachable:
+		return .Network_Unreachable
+	case net.Accept_Error.Insufficient_Resources:
+		return .Insufficient_Resources
+	case net.Accept_Error.Invalid_Argument:
+		return .Invalid_Argument
+	case net.Accept_Error.Unsupported_Socket:
+		return .Unsupported_Socket
+	case net.Accept_Error.Not_Listening:
+		return .Not_Listening
+	case net.Accept_Error.Aborted:
+		return .Aborted
+	case net.Accept_Error.Timeout:
+		return .Timeout
+	case net.Accept_Error.Would_Block:
+		return .Would_Block
+	case net.Accept_Error.Interrupted:
+		return .Interrupted
+	// Bind Error
+	case net.Bind_Error.None:
+		return .Success
+	case net.Bind_Error.Network_Unreachable:
+		return .Network_Unreachable
+	case net.Bind_Error.Insufficient_Resources:
+		return .Insufficient_Resources
+	case net.Bind_Error.Invalid_Argument:
+		return .Invalid_Argument
+	case net.Bind_Error.Already_Bound:
+		return .Already_Bound
+	case net.Bind_Error.Insufficient_Permissions_For_Address:
+		return .Insufficient_Resources
+	case net.Bind_Error.Address_In_Use:
+		return .Address_In_Use
+	// Tcp Send Error
+	case net.TCP_Send_Error.None:
+		return .Success
+	case net.TCP_Send_Error.Network_Unreachable:
+		return .Network_Unreachable
+	case net.TCP_Send_Error.Insufficient_Resources:
+		return .Insufficient_Resources
+	case net.TCP_Send_Error.Invalid_Argument:
+		return .Invalid_Argument
+	case net.TCP_Send_Error.Connection_Closed:
+		return .Connection_Closed
+	case net.TCP_Send_Error.Not_Connected:
+		return .Not_Connected
+	case net.TCP_Send_Error.Host_Unreachable:
+		return .Host_Unreachable
+	case net.TCP_Send_Error.Timeout:
+		return .Timeout
+	case net.TCP_Send_Error.Would_Block:
+		return .Would_Block
+	case net.TCP_Send_Error.Interrupted:
+		return .Interrupted
+	// Tcp Recv Error
+	case net.TCP_Recv_Error.None:
+		return .Success
+	case net.TCP_Recv_Error.Network_Unreachable:
+		return .Network_Unreachable
+	case net.TCP_Recv_Error.Insufficient_Resources:
+		return .Insufficient_Resources
+	case net.TCP_Recv_Error.Invalid_Argument:
+		return .Invalid_Argument
+	case net.TCP_Recv_Error.Not_Connected:
+		return .Not_Connected
+	case net.TCP_Recv_Error.Connection_Closed:
+		return .Connection_Closed
+	case net.TCP_Recv_Error.Timeout:
+		return .Timeout
+	case net.TCP_Recv_Error.Would_Block:
+		return .Would_Block
+	case net.TCP_Recv_Error.Interrupted:
+		return .Interrupted
+	// Set Socket non blocking
+	case net.Set_Blocking_Error.None:
+		return .Success
+	case net.Set_Blocking_Error.Network_Unreachable:
+		return .Network_Unreachable
+	case net.Set_Blocking_Error.Invalid_Argument:
+		return .Invalid_Argument
 	case:
 		return .Unknown
 	}
 }
-
+/*
 // Convert errno to Error_Code
 Errno_To_Error_Code :: proc(errno: posix.Errno) -> Error_Code {
 	switch errno {
@@ -147,84 +253,59 @@ Errno_To_Error_Code :: proc(errno: posix.Errno) -> Error_Code {
 		return .Unknown
 	}
 }
-
+*/
 get_error_message :: proc(code: Error_Code) -> string {
 	switch code {
 	case .Success:
 		return "Success"
-	case .Connection_Aborted:
-		return "Connection aborted"
-	case .Connection_Refused:
-		return "Connection refused"
-	case .Connection_Reset:
-		return "Connection reset by peer"
-	case .Not_Connected:
-		return "Transport endpoint is not connected"
-	case .Already_Connected:
-		return "Transport endpoint is already connected"
-	case .Would_Block:
-		return "Operation would block"
-	case .Try_Again:
-		return "Try again"
-	case .Operation_Canceled:
-		return "Operation canceled"
-	case .Timed_Out:
-		return "Connection timed out"
-	case .Network_Down:
-		return "Network is down"
 	case .Network_Unreachable:
 		return "Network is unreachable"
-	case .Host_Unreachable:
-		return "No route to host"
-	case .No_Memory:
-		return "Out of memory"
-	case .No_Buffer_Space:
-		return "No buffer space available"
-	case .Too_Many_Files:
-		return "Too many open files"
-	case .Bad_File_Descriptor:
-		return "Bad file descriptor"
+	case .Insufficient_Resources:
+		return "Insufficient resources (buffers or internal tables full)"
 	case .Invalid_Argument:
-		return "Invalid argument"
-	case .Broken_Pipe:
-		return "Broken pipe"
-	case .Message_Too_Large:
-		return "Message too long"
-	case .Protocol_Error:
-		return "Protocol error"
-	case .Wrong_Protocol_Type:
-		return "Protocol wrong type for socket"
+		return "Invalid argument or socket option"
+	case .Insufficient_Permissions:
+		return "Insufficient permissions to perform this operation"
+	case .Broadcast_Not_Supported:
+		return "Broadcast is not supported on this socket"
+	case .Already_Connected:
+		return "Socket is already connected"
+	case .Already_Connecting:
+		return "Socket is already in the process of connecting"
+	case .Already_Bound:
+		return "Socket is already bound to an address"
 	case .Address_In_Use:
-		return "Address already in use"
-	case .Address_Not_Available:
-		return "Cannot assign requested address"
-	case .Access_Denied:
-		return "Permission denied"
+		return "The address is already in use"
+	case .Host_Unreachable:
+		return "Could not reach the remote host"
+	case .Refused:
+		return "Connection refused by the remote host"
+	case .Reset:
+		return "Connection was reset by the remote host"
+	case .Connection_Closed:
+		return "The connection was closed/broken"
+	case .Not_Connected:
+		return "The socket is not connected"
+	case .Not_Listening:
+		return "The socket is not in a listening state"
+	case .Unsupported_Socket:
+		return "The socket type does not support this operation"
+	case .Aborted:
+		return "The connection was aborted"
+	case .Timeout:
+		return "The operation timed out"
+	case .Would_Block:
+		return "Non-blocking operation would block"
 	case .Interrupted:
-		return "Interrupted system call"
-	case .Fault:
-		return "Bad address"
-	case .End_Of_File:
-		return "End of file"
+		return "Operation was interrupted (signal or cancellation)"
+	case .Port_Required:
+		return "Endpoint requires a port but none was provided"
 	case .Unknown:
-		return "Unknown error"
+		return "An unknown or uncategorized error occurred"
 	}
 	return "Undefined error"
 }
 
 Make_Error_Info :: proc(code: Error_Code, category: Error_Category) -> Error_Info {
 	return Error_Info{code = code, category = category, message = get_error_message(code)}
-}
-
-
-Error_Category :: enum {
-	System,
-	Network,
-	Application,
-}
-
-Error_Info :: struct {
-	code:     Error_Code,
-	category: Error_Category,
-	message:  string,
 }
