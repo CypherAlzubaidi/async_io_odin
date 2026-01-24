@@ -21,6 +21,18 @@ State :: enum {
 	Error,
 }
 
+Handler_Action :: enum {
+	None,
+	Deinit,
+	Server_Shutdown,
+}
+
+Epoll_Event_Type :: enum {
+	In,
+	Out,
+	Error,
+}
+
 @(private)
 Handler_Type :: enum {
 	Recv,
@@ -53,6 +65,14 @@ Network_Tcp_Handler :: struct {
 	user_data:          rawptr,
 }
 
+Acceptor_Handler :: struct {
+	server_socket: net.TCP_Socket,
+	event_loop:    rawptr,
+	callback:      Acceptor_Callback,
+	user_data:     rawptr,
+	last_error:    error_c.Error_Code,
+}
+
 /////////////////////////// Network Pool Operations ///////////////////////////
 
 Init_Network_Handler_Pool :: proc(pool: ^Network_Pool) {
@@ -79,6 +99,69 @@ Deinit_Tcp_Handler :: proc(handler: ^Network_Tcp_Handler) {
 	if handler == nil do return
 	net.close(handler.conn)
 	free(handler)
+}
+
+/////////////////////////// Acceptor Handler Operations ///////////////////////////
+
+Create_Acceptor_Handler :: proc(
+	server_socket: net.TCP_Socket,
+	event_loop: rawptr,
+	callback: Acceptor_Callback,
+	user_data: rawptr = nil,
+) -> ^Acceptor_Handler {
+	acceptor := new(Acceptor_Handler)
+	acceptor.server_socket = server_socket
+	acceptor.event_loop = event_loop
+	acceptor.callback = callback
+	acceptor.user_data = user_data
+	acceptor.last_error = .Success
+	return acceptor
+}
+
+Deinit_Acceptor_Handler :: proc(acceptor: ^Acceptor_Handler) {
+	if acceptor == nil do return
+	net.close(acceptor.server_socket)
+	free(acceptor)
+}
+
+accept_connection :: proc(acceptor: ^Acceptor_Handler) -> Handler_Action {
+	if acceptor == nil {
+		return .Deinit
+	}
+
+	client_socket, _, accept_err := net.accept(acceptor.server_socket)
+
+	if accept_err != nil {
+		err_code := error_c.Net_Error_To_Error_Code(accept_err)
+
+		if err_code == .Would_Block || err_code == .Try_Again {
+			// No connection ready yet, continue waiting
+			return .None
+		}
+
+		acceptor.last_error = err_code
+		if acceptor.callback != nil {
+			acceptor.callback(acceptor.user_data, {}, err_code, .Error)
+		}
+		return .Deinit
+	}
+
+	// Set new connection to non-blocking
+	if err := set_socket_non_blocking(client_socket); err != .Success {
+		acceptor.last_error = err
+		net.close(client_socket)
+		if acceptor.callback != nil {
+			acceptor.callback(acceptor.user_data, {}, err, .Error)
+		}
+		return .None
+	}
+
+	// Call callback with new connection
+	if acceptor.callback != nil {
+		acceptor.callback(acceptor.user_data, client_socket, .Success, .Active)
+	}
+
+	return .None
 }
 
 /////////////////////////// Socket Utilities ///////////////////////////
@@ -203,11 +286,55 @@ Write_Tcp_Handler :: proc(
 	return .Success
 }
 
+echo :: proc(
+	tcp_handler: ^Network_Tcp_Handler,
+	event_type: Epoll_Event_Type,
+	callback: Callback_Handler,
+) -> Handler_Action {
+	if tcp_handler == nil {
+		return .Deinit
+	}
+
+	switch event_type {
+	case .In:
+		err := Read_Tcp_Handler(tcp_handler, callback, tcp_handler.user_data)
+
+		if err == .End_Of_File {
+			return .Deinit
+		}
+
+		if err != .Success && err != .Would_Block && err != .Try_Again {
+			return .Deinit
+		}
+
+		// Check for exit command
+		if tcp_handler.bytes_transferred > 0 {
+			data := tcp_handler.buffer[:tcp_handler.bytes_transferred]
+			if slice.equal(data, transmute([]u8)string("exit\r\n")) {
+				return .Server_Shutdown
+			}
+		}
+
+	case .Out:
+		if tcp_handler.bytes_transferred > 0 {
+			data := tcp_handler.buffer[:tcp_handler.bytes_transferred]
+			err := Write_Tcp_Handler(tcp_handler, data, callback, tcp_handler.user_data)
+
+			if err != .Success && err != .Would_Block && err != .Try_Again {
+				return .Deinit
+			}
+		}
+
+	case .Error:
+		return .Deinit
+	}
+
+	return .None
+}
+
 main :: proc() {
 	pool: Network_Pool
 	handler := Create_Network_Handler()
 	Init_Network_HandlerPool(&pool)
 	append(&pool.container, handler)
-
-
 }

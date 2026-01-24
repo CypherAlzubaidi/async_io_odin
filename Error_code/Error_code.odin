@@ -36,8 +36,10 @@ Error_Code :: enum {
 	Aborted,
 	Timeout,
 	Would_Block,
+	Try_Again,
 	Interrupted,
 	Port_Required,
+	End_Of_File,
 	Unknown,
 }
 
@@ -296,10 +298,14 @@ get_error_message :: proc(code: Error_Code) -> string {
 		return "The operation timed out"
 	case .Would_Block:
 		return "Non-blocking operation would block"
+	case .Try_Again:
+		return "Resource temporarily unavailable, try again"
 	case .Interrupted:
 		return "Operation was interrupted (signal or cancellation)"
 	case .Port_Required:
 		return "Endpoint requires a port but none was provided"
+	case .End_Of_File:
+		return "End of file or connection closed by peer"
 	case .Unknown:
 		return "An unknown or uncategorized error occurred"
 	}
